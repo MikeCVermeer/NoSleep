@@ -1,0 +1,20 @@
+# Local agent/session instructions
+AGENTS.md
+NO_SLEEP_GOAL.md
+PLAN.md
+docs/
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+
+# Build outputs
+DerivedData/
+build/
+dist/
+*.xcarchive
+*.xcresult
+
+# macOS metadata
+.DS_Store
