@@ -1,180 +1,128 @@
-# NoSleep
+<p align="center">
+  <img src="./NoSleep/NoSleep%20Icon.png" width="112" alt="NoSleep app icon">
+</p>
 
-NoSleep is a native macOS menu-bar utility that keeps the Mac awake while important work is running. It is intended for developers and power users running long-running AI agents, terminal commands, builds, scripts, local servers, downloads, and background jobs.
+<h1 align="center">NoSleep</h1>
 
-Current release: **NoSleep 1.0**.
+<p align="center">
+  A native macOS menu-bar utility for keeping a Mac awake while important work is running.
+</p>
 
-V1 is intentionally local-only and minimal: no cloud, no accounts, no analytics, no telemetry, no process detection, and no complex automation rules.
+<p align="center">
+  <a href="https://github.com/MikeCVermeer/NoSleep/actions/workflows/ci.yml"><img src="https://github.com/MikeCVermeer/NoSleep/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/MikeCVermeer/NoSleep/releases/latest"><img src="https://img.shields.io/github/v/release/MikeCVermeer/NoSleep" alt="Latest release"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/github/license/MikeCVermeer/NoSleep" alt="MIT license"></a>
+  <img src="https://img.shields.io/badge/macOS-26%2B-111111?logo=apple" alt="macOS 26 or newer">
+</p>
 
-## Current Status
+<p align="center">
+  <a href="https://mikevermeer.dev/work/nosleep/">Case study</a> ·
+  <a href="https://github.com/MikeCVermeer/NoSleep/releases/latest">Release</a>
+</p>
 
-V1 implementation is complete. The repository contains a native Swift macOS app scaffold named `NoSleep`, typed settings/state models, duration helpers, a time remaining formatter, an IOKit-backed sleep assertion manager, an IOKit-backed power monitor, session controller and timer logic, app sleep/wake handling, app-termination assertion release wiring, diagnostics models, a menu-bar UI, a five-section Settings window, UserNotifications delivery, ServiceManagement launch-at-login integration, and a unit-test target.
+NoSleep is designed for long-running AI agents, terminal commands, builds, local servers, downloads, and background jobs. It keeps system sleep and display sleep separate, applies battery-aware safeguards, and owns the full assertion lifecycle in one session controller.
 
-The menu-bar UI can start indefinite, preset-duration, and until-specific-time awake sessions, and can stop the active session. NoSleep is configured as a menu-bar-only agent, so it stays out of the Dock and app switcher. The app ships with a custom NoSleep icon. Power-source detection, battery safety enforcement, notification delivery, launch-at-login integration, and post-sleep behavior are wired into the app.
+No cloud. No accounts. No analytics or telemetry.
+
+## Highlights
+
+- Indefinite, preset-duration, and until-specific-time awake sessions.
+- Separate IOKit assertions for system sleep and display sleep.
+- Display sleep remains allowed by default.
+- Battery warnings, an optional unplug policy, and a configurable low-battery cutoff.
+- Native notifications, launch-at-login integration, and diagnostics export.
+- Explicit stop, timer-expiry, sleep/wake, failure, and application-termination paths.
+- 47 unit tests covering settings, controller state, timers, battery policy, notification events, diagnostics, and assertion management.
 
 ## Install
 
-With Homebrew:
+### Homebrew
 
 ```bash
 brew install --cask MikeCVermeer/tap/nosleep
 ```
 
-Or install manually:
+### Manual
 
-Download `NoSleep-1.0.zip` from the GitHub release, unzip it, and move `NoSleep.app` to `/Applications`.
+Download the latest ZIP and checksum from [GitHub Releases](https://github.com/MikeCVermeer/NoSleep/releases/latest), verify the archive if desired, unzip it, and move `NoSleep.app` to `/Applications`.
 
-NoSleep 1.0 is built locally and is not notarized for App Store distribution. On first launch, macOS Gatekeeper may require opening it from Finder with Control-click, Open.
+NoSleep currently requires macOS 26 or newer and is distributed for Apple silicon. The current release is not Developer ID signed or notarized, so macOS may require a Control-click, **Open**, and confirmation on first launch.
 
-## What NoSleep Will Do
+## How it works
 
-- Let the user start and stop an awake session from the menu bar.
-- Prevent automatic idle system sleep while active.
-- Allow display sleep by default.
-- Optionally keep the display awake.
-- Support timer presets, until-specific-time sessions, and "Until I turn it off".
-- Apply battery-safe defaults.
-- Release power assertions when a session ends or the app quits.
+NoSleep creates a `NoIdleSleepAssertion` while a session is active. When **Also prevent display sleep** is enabled, it adds a separate `NoDisplaySleepAssertion`. Keeping those responsibilities separate means the default session can protect long-running work without unnecessarily keeping the screen on.
 
-## What NoSleep Will Not Do
-
-- It will not claim to block all manual, lid-close, forced, or system-initiated sleep paths.
-- It will not interfere with lock screen or screensaver behavior.
-- It will not detect specific apps, terminals, containers, or processes in V1.
-- It will not use cloud services, accounts, analytics, telemetry, or tracking.
-
-## Requirements
-
-- macOS with Xcode installed.
-- Xcode command line tools available through `xcodebuild`.
-
-## Build
-
-Discover schemes:
-
-```bash
-xcodebuild -list
+```mermaid
+stateDiagram-v2
+    [*] --> Inactive
+    Inactive --> Active: Start session
+    Active --> Inactive: Stop or timer expires
+    Active --> Disabled: Battery or unplug policy
+    Active --> Inactive: App terminates
+    Disabled --> Active: Conditions allow a new session
+    Disabled --> Inactive: Reset
 ```
 
-Build the debug app:
+NoSleep does not claim to block manual sleep, lid-close sleep, forced sleep, the lock screen, or the screensaver.
 
-```bash
-xcodebuild -scheme NoSleep -configuration Debug -destination 'platform=macOS' build
-```
+## Safety defaults
 
-Build the release app:
+| Setting | Default behavior |
+|---|---|
+| System sleep | Prevented while a session is active |
+| Display sleep | Allowed |
+| Indefinite sessions on battery | Blocked |
+| Timed sessions on battery | Require confirmation when warnings are enabled |
+| Low battery | Session stops at the configured threshold |
+| Unplug during an indefinite session | Session stays active unless auto-disable is enabled |
 
-```bash
-xcodebuild -scheme NoSleep -configuration Release -destination 'platform=macOS' build
-```
+The default battery threshold is 20%.
 
-Current validation:
+## Verification
 
-- `xcodebuild -list` passes and lists scheme `NoSleep`.
+Automated verification:
+
 - `xcodebuild -scheme NoSleep -destination 'platform=macOS' test` passes with 47 tests.
-- `xcodebuild -scheme NoSleep -configuration Debug -destination 'platform=macOS' build` passes.
-- `xcodebuild -scheme NoSleep -configuration Release -destination 'platform=macOS' build` passes.
+- Debug and release configurations build successfully.
+- GitHub Actions runs the unit suite and a release-configuration build on macOS 26.
 
-## Release Packaging
+Scoped system verification performed on 12 July 2026 using an Apple-silicon Mac on macOS 26.5.1 and AC power:
 
-After a Release build, package the app from Xcode DerivedData:
+- An isolated development build created its own `NoIdleSleepAssertion` through the real session-controller and IOKit path.
+- The default session did not create a display-sleep assertion.
+- The development-build assertion disappeared after that process stopped.
 
-```bash
-ditto -c -k --keepParent path/to/NoSleep.app NoSleep-1.0.zip
-```
+This is not presented as a complete release smoke test. Menu interaction, Settings interaction, notification delivery, launch-at-login registration, charger transitions, low-battery behavior, and normal in-app stop behavior still require a repeatable hands-on matrix before the release is described as fully manually validated.
 
-The GitHub V1.0 release artifact is `NoSleep-1.0.zip`.
-
-V1.0 SHA-256:
-
-```text
-82387a9c080dbb4819babc2356fc652d0442e9b1d4162ad769d00d7698faf782  NoSleep-1.0.zip
-```
-
-## Run
-
-From Xcode, open `NoSleep.xcodeproj`, select the `NoSleep` scheme, and run the app. From the command line, build with `xcodebuild`, then launch the generated `NoSleep.app` from Xcode DerivedData or Xcode's Products group.
-
-NoSleep appears in the macOS menu bar as a power icon and is hidden from the Dock/app switcher. Use the menu to start a timed session, start “Until I turn it off”, open Settings, or quit.
-
-## Tests
-
-Run unit tests:
-
-```bash
-xcodebuild -scheme NoSleep -destination 'platform=macOS' test
-```
-
-Current validation:
-
-- `xcodebuild -scheme NoSleep -destination 'platform=macOS' test` passes.
-- Current tests cover settings defaults/persistence/reset, duration presets, time remaining formatting, sleep assertion manager state transitions, session controller state/timer behavior, post-sleep behavior, battery safety policy, notification events, settings labels, diagnostics text formatting, and until-specific-time date calculation.
-
-## Settings
-
-Open Settings from the NoSleep menu. Current sections:
-
-- General: start-at-login integration, menu timer display, active icon state, and default duration.
-- Sleep Behavior: system-sleep prevention, display-sleep prevention, and post-sleep behavior.
-- Battery: battery warning, indefinite-session plug-in requirement, unplug auto-disable, low-battery disable, and threshold percentage.
-- Notifications: persisted notification preferences for V1 events.
-- Advanced: reset all settings, export diagnostics to the clipboard, notification authorization status, and launch-at-login status.
-
-The start-at-login toggle uses `SMAppService.mainApp`. Registration can fail depending on signing, installation location, or macOS policy; the last error is shown in Advanced settings.
-
-## Sleep Behavior
-
-While active, NoSleep prevents automatic idle system sleep with an IOKit system-sleep assertion. Display sleep is allowed by default. Enabling “Also prevent display sleep” creates a separate display-sleep assertion.
-
-NoSleep does not try to block manual sleep, lid-close sleep, forced sleep, lock screen, or screensaver behavior. By default, when macOS sleeps, NoSleep turns off and releases assertions. Settings can request resume after wake or previous-state behavior; both paths still re-check battery safety before restarting assertions.
-
-## Notifications
-
-NoSleep uses macOS UserNotifications for enabled V1 events:
-
-- Timer ended: “NoSleep timer ended. Your Mac can sleep normally again.”
-- Battery low: “NoSleep disabled at the configured battery threshold.”
-- Unplugged while active: “NoSleep is still active on battery.”
-- Auto-disabled when unplugged: “NoSleep disabled because your Mac was unplugged.”
-
-Notification permission is requested only when NoSleep first needs to send a notification. Low-battery notifications are suppressed until the low-battery condition clears.
-
-## Power Assertion Verification
-
-The IOKit assertion manager, session controller, and menu actions are implemented. After launching the app and starting an awake session from the menu bar, use:
+To inspect assertions while testing:
 
 ```bash
 pmset -g assertions
 ```
 
-Manual verification checklist:
+## Build and test
 
-- No NoSleep assertion appears before enabling an awake session.
-- A system sleep assertion appears after enabling an awake session.
-- Display sleep remains allowed by default.
-- A display assertion appears only when the display-awake setting is enabled.
-- Assertions are released after stopping the session or quitting the app.
+Requirements: macOS 26 or newer and Xcode with the macOS SDK and command-line tools.
 
-This manual `pmset` smoke test has not been performed in this session.
+```bash
+xcodebuild -scheme NoSleep \
+  -configuration Debug \
+  -destination 'platform=macOS' \
+  build
 
-## Battery Safety Defaults
+xcodebuild -scheme NoSleep \
+  -destination 'platform=macOS' \
+  test
+```
 
-The V1 defaults are:
+## Current limitations
 
-- Only allow "Until I turn it off" while plugged in.
-- Warn before running on battery.
-- Do not auto-disable when unplugged unless the user enables that setting.
-- Disable at or below the configured battery threshold.
-- Default battery threshold: 20%.
+- No process, terminal, container, or application detection.
+- No cloud services, accounts, analytics, or tracking.
+- The app does not override manual or hardware-driven sleep paths.
+- Releases are not currently signed or notarized.
+- Distribution is currently Apple-silicon only.
 
-Implemented behavior:
+## License
 
-- Indefinite sessions are blocked while on battery by default.
-- Timed sessions can run on battery after an in-menu confirmation when warnings are enabled.
-- Active sessions release assertions and become disabled when the configured battery threshold is reached.
-- Unplugging during an indefinite session leaves NoSleep active and visible on battery by default.
-- Enabling auto-disable when unplugged releases assertions and disables the session.
-
-## Limitations
-
-NoSleep V1 prevents automatic idle system sleep while active. It does not promise to block manual sleep, lid-close sleep, forced sleep, lock screen, or screensaver behavior.
+NoSleep is available under the [MIT License](./LICENSE).
