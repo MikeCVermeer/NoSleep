@@ -178,5 +178,3 @@ Implemented behavior:
 ## Limitations
 
 NoSleep V1 prevents automatic idle system sleep while active. It does not promise to block manual sleep, lid-close sleep, forced sleep, lock screen, or screensaver behavior.
-
-Manual smoke testing that was not performed in this session: menu-bar interaction, Settings window interaction, notification permission/delivery, launch-at-login registration, charger unplug, and low-battery behavior.
