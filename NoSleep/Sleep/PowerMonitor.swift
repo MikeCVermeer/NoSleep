@@ -32,7 +32,7 @@ final class PowerMonitor: ObservableObject, PowerMonitoring {
 
     private func start() {
         timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.refresh()
             }
         }
